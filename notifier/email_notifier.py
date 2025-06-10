@@ -1,25 +1,29 @@
 import smtplib
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from config import settings
 
-def send_email(subject, message):
-    print("Sending email...")
+def send_email(subject, message=None, html_body=None):
+    msg = MIMEMultipart("alternative")
+    msg['From'] = settings.MAIL_FROM_NAME + f" <{settings.MAIL_FROM}>"
+    msg['To'] = settings.MAIL_FROM
+    msg['Subject'] = subject
+
+    # Attach plain text if provided
+    if message:
+        msg.attach(MIMEText(message, 'plain'))
+
+    # Attach HTML if provided
+    if html_body:
+        msg.attach(MIMEText(html_body, 'html'))
 
     try:
-        msg = MIMEText(message)
-        msg["Subject"] = subject
-        msg["From"] = settings.email_sender
-        msg["To"] = settings.email_receiver
-
-        server = smtplib.SMTP(settings.smtp_server, settings.smtp_port)
-        server.starttls()
-        server.login(settings.email_sender, settings.email_password)
+        server = smtplib.SMTP(settings.MAIL_SERVER, settings.MAIL_PORT)
+        if settings.MAIL_STARTTLS:
+            server.starttls()
+        server.login(settings.MAIL_USERNAME, settings.MAIL_PASSWORD)
         server.send_message(msg)
         server.quit()
-
-        print("Email sent successfully!")
+        print("📨 Email sent successfully!")
     except Exception as e:
-        print(f"Failed to send email: {str(e)}")
-
-
-       
+        print(f"❌ Failed to send email: {e}")

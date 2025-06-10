@@ -1,7 +1,8 @@
 import socket
 #define a function to scan the ports
 def scan_ports(target_ip, ports):
-    open_ports = [] #Tuple to store open ports
+
+    open_ports = [] #--------------------------------------- liste des ports 0 scanner
     for port in ports:
         s = socket.socket()  #Generating a socket object
         s.settimeout(1)  #stting a 1 second time lapse before moving to the next step
@@ -10,5 +11,6 @@ def scan_ports(target_ip, ports):
            open_ports.append(port)  #if the port is open, storing it the tuple
         except:
             pass  #it ignores the closed ports
-        s.close()  #it close the socket
+        finally:
+            s.close()  #it close the socket
     return open_ports     
