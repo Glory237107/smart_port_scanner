@@ -1,0 +1,6 @@
+nohup: ignoring input
+ Starting scan for 192.168.88.146...
+ Open ports found: [21, 53, 443, 2022, 4001, 4002, 4003, 4005, 4006, 7777, 7778, 8000, 8080]
+ Vulnerability report generated.
+ Sending email report...
+📨 Email sent successfully!

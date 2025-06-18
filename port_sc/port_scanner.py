@@ -1,16 +1,64 @@
 import socket
-#define a function to scan the ports
-def scan_ports(target_ip, ports):
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    open_ports = [] #--------------------------------------- liste des ports 0 scanner
-    for port in ports:
-        s = socket.socket()  #Generating a socket object
-        s.settimeout(1)  #stting a 1 second time lapse before moving to the next step
+def scan_ports(target_ip, ports, threat_manager=None):
+    open_ports = []
+    print(f"🔍 Scanning {len(ports)} ports on {target_ip}...")
+
+    def scan_single_port(port):
+        s = socket.socket()
+        s.settimeout(0.5)
         try:
-           s.connect((target_ip, port))  #connecting toa port using the socket object
-           open_ports.append(port)  #if the port is open, storing it the tuple
+            s.connect((target_ip, port))
+            service = get_basic_service_name(port)
+            if threat_manager:
+                additional_info = {
+                    'scan_method': 'socket_connect',
+                    'response_time': 'fast',
+                    'suspicious': is_suspicious_port(port)
+                }
+                threat_manager.process_scan_result(
+                    ip=target_ip,
+                    port=port,
+                    service=service,
+                    is_open=True,
+                    additional_info=additional_info
+                )
+            print(f"✅ Port {port} open - {service}")
+            return port
         except:
-            pass  #it ignores the closed ports
+            return None
         finally:
-            s.close()  #it close the socket
-    return open_ports     
+            s.close()
+
+    with ThreadPoolExecutor(max_workers=100) as executor:
+        futures = [executor.submit(scan_single_port, port) for port in ports]
+        for i, future in enumerate(as_completed(futures), 1):
+            result = future.result()
+            if result:
+                open_ports.append(result)
+
+            if i % 1000 == 0 or i == len(ports):
+                print(f"📊 Progress: {i}/{len(ports)} ports scanned")
+
+    return open_ports
+
+def get_basic_service_name(port):
+    common_services = {
+        21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP", 53: "DNS",
+        80: "HTTP", 110: "POP3", 135: "RPC", 139: "NetBIOS", 143: "IMAP",
+        443: "HTTPS", 445: "SMB", 993: "IMAPS", 995: "POP3S", 1433: "MS-SQL",
+        1521: "Oracle", 3306: "MySQL", 3389: "RDP", 5432: "PostgreSQL", 5900: "VNC"
+    }
+    return common_services.get(port, f"Unknown-{port}")
+
+def is_suspicious_port(port):
+    suspicious_ports = [21, 22, 23, 135, 139, 445, 1433, 1521, 3306, 3389, 5900]
+    return port in suspicious_ports
+
+# 💡 NEW FUNCTION REQUIRED BY YOUR MAIN SCRIPT
+def perform_scan(target_ip, ports, threat_manager=None):
+    """
+    Wrapper function to match external import calls
+    """
+    return scan_ports(target_ip, ports, threat_manager)

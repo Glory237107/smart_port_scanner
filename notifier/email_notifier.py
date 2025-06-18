@@ -9,21 +9,28 @@ def send_email(subject, message=None, html_body=None):
     msg['To'] = settings.MAIL_FROM
     msg['Subject'] = subject
 
-    # Attach plain text if provided
     if message:
         msg.attach(MIMEText(message, 'plain'))
 
-    # Attach HTML if provided
     if html_body:
         msg.attach(MIMEText(html_body, 'html'))
 
     try:
-        server = smtplib.SMTP(settings.MAIL_SERVER, settings.MAIL_PORT)
+        server = smtplib.SMTP(settings.MAIL_SERVER, settings.MAIL_PORT, timeout=10)
         if settings.MAIL_STARTTLS:
             server.starttls()
         server.login(settings.MAIL_USERNAME, settings.MAIL_PASSWORD)
         server.send_message(msg)
         server.quit()
-        print("📨 Email sent successfully!")
-    except Exception as e:
-        print(f"❌ Failed to send email: {e}")
+        print("Email sent successfully!")
+        return True
+    except (smtplib.SMTPException, OSError) as e:
+        print(f" Failed to send email: {e}")
+        return False
+
+# Wrapper to match expected import
+def send_email_report(subject, html_body):
+    """
+    Sends only an HTML email report (no plain message).
+    """
+    return send_email(subject=subject, html_body=html_body)

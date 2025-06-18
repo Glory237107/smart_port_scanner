@@ -1,3 +1,5 @@
 nmap
-twilio
 schedule
+requests
+vulners
+python-dotenv
