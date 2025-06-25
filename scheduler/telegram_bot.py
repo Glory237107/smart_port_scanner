@@ -1,65 +1,83 @@
-from telegram.ext import Updater, CommandHandler
+import os
+import asyncio
+from dotenv import load_dotenv
+
+from telegram_bot import Update
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes
+)
+
 from port_sc.port_scanner import scan_ports
 from notifier.email_notifier import send_email_report
 from threat_handler.threat_manager import ThreatManager
 from utils.html_report import format_threat_summary_html, format_report_table_html
-from dotenv import load_dotenv
-import os
 
+# 🔐 Load environment variables
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-def start(update, context):
-    update.message.reply_text(" Hello! I’m your *Smart Port Scanner Bot*.\nUse `/scan <IP>` to begin scanning ", parse_mode='Markdown')
+# /start command
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        " Hello! I’m your *Smart Port Scanner Bot*.\nUse `/scan <IP>` to begin scanning ",
+        parse_mode='Markdown'
+    )
 
-def scan(update, context):
+# /scan command
+async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        update.message.reply_text("❗ Please provide a target IP or domain.\nUsage: `/scan 192.168.1.1`", parse_mode='Markdown')
+        await update.message.reply_text(
+            "❗ Please provide a target IP or domain.\nUsage: `/scan 192.168.1.1`",
+            parse_mode='Markdown'
+        )
         return
 
     target = context.args[0]
-    update.message.reply_text(f" Starting scan for `{target}`...\nSit tight, this may take a few minutes ", parse_mode='Markdown')
+    await update.message.reply_text(
+        f"🔍 Starting scan for `{target}`...\nSit tight, this may take a few minutes.",
+        parse_mode='Markdown'
+    )
 
-    # Define scan range and threat manager
-    ports_to_scan = list(range(1, 1025))  # You can extend this as needed
+    # Configure scan
+    ports_to_scan = list(range(1, 1025))
     threat_manager = ThreatManager()
 
-    # Perform scan
-    open_ports = scan_ports(target, ports_to_scan, threat_manager=threat_manager)
+    # Run scan (in thread to avoid blocking)
+    loop = asyncio.get_event_loop()
+    open_ports = await loop.run_in_executor(None, scan_ports, target, ports_to_scan, threat_manager)
 
-    # Format summary and full HTML report
+    # Prepare reports
     threat_summary_html = format_threat_summary_html(threat_manager.summarize())
     full_report_html = format_report_table_html(threat_manager.get_full_scan_results())
 
-    # Send quick summary in chat
     if open_ports:
         ports_str = ", ".join(map(str, open_ports))
-        update.message.reply_text(
-            f" *Scan Complete for* `{target}`\n\n"
-            f" *Open Ports:* `{ports_str}`\n"
-            f" Sending email report shortly...",
+        await update.message.reply_text(
+            f"✅ *Scan Complete for* `{target}`\n\n"
+            f"*Open Ports:* `{ports_str}`\n"
+            f"📧 Sending email report shortly...",
             parse_mode='Markdown'
         )
     else:
-        update.message.reply_text(
-            f" *Scan Complete for* `{target}`\n\n"
-            f" No open ports found.\n"
-            f" Email report still being sent.",
+        await update.message.reply_text(
+            f"✅ *Scan Complete for* `{target}`\n\n"
+            f"No open ports found.\n📧 Email report still being sent.",
             parse_mode='Markdown'
         )
 
-    # Send email report
-    send_email_report(subject=f"Scan Report for {target}", html_body=full_report_html + "<br><br>" + threat_summary_html)
+    # Send report via email
+    await loop.run_in_executor(None, send_email_report, f"Scan Report for {target}", full_report_html + "<br><br>" + threat_summary_html)
 
+# Bot entry point
 def main():
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
+    app = ApplicationBuilder().token(TOKEN).build()
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("scan", scan))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("scan", scan))
 
-    updater.start_polling()
-    updater.idle()
+    app.run_polling()
 
 if __name__ == "__main__":
     main()

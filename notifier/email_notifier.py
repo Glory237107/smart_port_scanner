@@ -28,9 +28,5 @@ def send_email(subject, message=None, html_body=None):
         print(f" Failed to send email: {e}")
         return False
 
-# Wrapper to match expected import
 def send_email_report(subject, html_body):
-    """
-    Sends only an HTML email report (no plain message).
-    """
     return send_email(subject=subject, html_body=html_body)

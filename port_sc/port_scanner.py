@@ -56,9 +56,5 @@ def is_suspicious_port(port):
     suspicious_ports = [21, 22, 23, 135, 139, 445, 1433, 1521, 3306, 3389, 5900]
     return port in suspicious_ports
 
-# 💡 NEW FUNCTION REQUIRED BY YOUR MAIN SCRIPT
 def perform_scan(target_ip, ports, threat_manager=None):
-    """
-    Wrapper function to match external import calls
-    """
     return scan_ports(target_ip, ports, threat_manager)
